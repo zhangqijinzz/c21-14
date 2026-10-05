@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import type { LatencyProject, RequestNode } from "../../shared/domain/types";
 import type { EditableNodeField } from "./graphViewModel";
+import NumberField from "./NumberField";
 
 interface Props {
   project: LatencyProject;
@@ -60,15 +61,12 @@ export default function NodeInspector({
             <label className="field-label" key={key}>
               {label}
               <span className="number-wrap">
-                <input
-                  type="number"
-                  min="0"
+                <NumberField
+                  key={node.id}
+                  value={node[key]}
                   max={max}
                   step={step}
-                  value={node[key]}
-                  onChange={(event) =>
-                    onPatch(node.id, { [key]: Number(event.target.value) })
-                  }
+                  onCommit={(next) => onPatch(node.id, { [key]: next })}
                 />
                 <small>{suffix}</small>
               </span>
