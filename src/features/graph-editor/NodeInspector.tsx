@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import type { LatencyProject, RequestNode } from "../../shared/domain/types";
 import type { EditableNodeField } from "./graphViewModel";
+import { formatNumericValue, parseNumericDraft } from "./numericDraft";
 
 interface Props {
   project: LatencyProject;
@@ -24,6 +25,56 @@ const numericFields: {
   { key: "retryCount", label: "重试次数", suffix: "次", step: 1, max: 8 },
   { key: "failureRate", label: "失败概率", suffix: "%", step: 1, max: 100 },
 ];
+
+interface NumberFieldProps {
+  label: string;
+  suffix: string;
+  step: number;
+  max?: number;
+  value: number;
+  onCommit: (value: number) => void;
+}
+
+/**
+ * 数字输入：草稿与模型分离。输入途中（清空、只输了符号等）只更新本地
+ * 草稿，不触碰链路与推演；合法数字即时提交，保留连续调整的手感；
+ * 失焦或回车时丢弃未提交的草稿，回显模型里的最后合法值。
+ */
+function NumberField({
+  label,
+  suffix,
+  step,
+  max,
+  value,
+  onCommit,
+}: NumberFieldProps) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <label className="field-label">
+      {label}
+      <span className="number-wrap">
+        <input
+          type="number"
+          min="0"
+          max={max}
+          step={step}
+          value={draft ?? formatNumericValue(value)}
+          onChange={(event) => {
+            const text = event.target.value;
+            setDraft(text);
+            const parsed = parseNumericDraft(text);
+            if (parsed !== null) onCommit(parsed);
+          }}
+          onBlur={() => setDraft(null)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.currentTarget.blur();
+          }}
+        />
+        <small>{suffix}</small>
+      </span>
+    </label>
+  );
+}
 
 export default function NodeInspector({
   project,
@@ -57,22 +108,15 @@ export default function NodeInspector({
         </label>
         <div className="field-grid">
           {numericFields.map(({ key, label, suffix, step, max }) => (
-            <label className="field-label" key={key}>
-              {label}
-              <span className="number-wrap">
-                <input
-                  type="number"
-                  min="0"
-                  max={max}
-                  step={step}
-                  value={node[key]}
-                  onChange={(event) =>
-                    onPatch(node.id, { [key]: Number(event.target.value) })
-                  }
-                />
-                <small>{suffix}</small>
-              </span>
-            </label>
+            <NumberField
+              key={`${node.id}-${key}`}
+              label={label}
+              suffix={suffix}
+              step={step}
+              max={max}
+              value={node[key]}
+              onCommit={(value) => onPatch(node.id, { [key]: value })}
+            />
           ))}
         </div>
         <div className="dependency-section">
